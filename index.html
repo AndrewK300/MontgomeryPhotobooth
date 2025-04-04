@@ -77,10 +77,9 @@
       cursor: pointer;
       font-size: 16px;
       border-radius: 8px;
-font-weight: bold;
+      font-weight: bold;
     }
-
-#exit-button {
+    #exit-button {
       padding: 10px 20px;
       background-color: darkred;
       color: white;
@@ -88,18 +87,17 @@ font-weight: bold;
       cursor: pointer;
       font-size: 16px;
       border-radius: 8px;
-font-weight:bold;
+      font-weight: bold;
     }
-    
     #thank-you-image {
       display: none;
-      position: absolute;  /* Make it overlay */
+      position: absolute;
       top: 0;
       left: 28%;
-     width: 730px;
+      width: 730px;
       height: 520px;
-      object-fit: cover;  /* Ensure it covers the area */
-      z-index: 10;  /* Ensure it's above other elements */
+      object-fit: cover;
+      z-index: 10;
     }
   </style>
 </head>
@@ -137,9 +135,13 @@ font-weight:bold;
     // Get access to the user's camera
     navigator.mediaDevices.getUserMedia({ video: true })
       .then(stream => {
+        console.log('Webcam access granted!');
         video.srcObject = stream;
       })
-      .catch(err => console.log('Error accessing camera: ', err));
+      .catch(err => {
+        console.log('Error accessing camera: ', err);
+        alert("Unable to access your camera. Please check permissions.");
+      });
 
     captureButton.addEventListener('click', () => {
       captureButton.style.display = 'none';
@@ -186,8 +188,28 @@ font-weight:bold;
     sendEmailButton.addEventListener('click', () => {
       const email = emailInput.value;
       if (email && capturedImageData) {
-        alert('Image sent to ' + email);  // Replace with actual email sending
-        displayThankYouImageForSevenSeconds();  // Show thank you image for 7 seconds
+        // Send the email with the captured image
+        const formData = new FormData();
+        formData.append('email', email);
+        formData.append('image', capturedImageData);
+
+        fetch('/send-email', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            alert('Image sent to ' + email);
+            displayThankYouImageForSevenSeconds(); // Show thank you image for 7 seconds
+          } else {
+            alert('There was an error sending the image.');
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('There was an error sending the image.');
+        });
       } else {
         alert('Please capture an image and provide an email address.');
       }
