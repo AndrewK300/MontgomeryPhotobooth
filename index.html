@@ -3,229 +3,135 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Take Picture</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 0;
-    }
-    #camera-container {
-      display: inline-block;
-      position: relative;
-      width: 730px;
-      height: 520px;
-      background-color: #000;
-    }
-    #camera {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transform: scaleX(-1);
-    }
-    #captured-image {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: none;
-    }
-    #capture-button {
-      position: absolute;
-      bottom: 40px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 10px 20px;
-      background-color: #f5b027;
-      color: black;
-      border: none;
-      cursor: pointer;
-      font-size: 16px;
-      font-weight: bold;
-      border-radius: 12px;
-      transition: background-color 0.3s ease;
-    }
-    #timer {
-      font-size: 300px;
-      font-weight: bold;
-      opacity: 0.5;
-      color: white;
-      position: absolute;
-      top: 50px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: none;
-    }
-    #email-form {
-      position: absolute;
-      top: 64%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      display: none;
-    }
-    input[type="email"] {
-      padding: 10px;
-      width: 300px;
-      margin: 10px 0;
-    }
-    button {
-      padding: 10px 20px;
-      background-color: #f5b027;
-      color: black;
-      border: none;
-      cursor: pointer;
-      font-size: 16px;
-      border-radius: 8px;
-      font-weight: bold;
-    }
-    #exit-button {
-      padding: 10px 20px;
-      background-color: darkred;
-      color: white;
-      border: none;
-      cursor: pointer;
-      font-size: 16px;
-      border-radius: 8px;
-      font-weight: bold;
-    }
-    #thank-you-image {
-      display: none;
-      position: absolute;
-      top: 0;
-      left: 28%;
-      width: 730px;
-      height: 520px;
-      object-fit: cover;
-      z-index: 10;
-    }
-  </style>
+  <title>Photo Booth</title>
 </head>
 <body>
-   <div id="camera-container">
-    <video id="camera" autoplay></video>
-    <img id="captured-image" src="" alt="Captured Image">
-    <button id="capture-button">Snap A Photo!</button>
-    <div id="timer"></div>
+  <!-- Video element to show the camera feed -->
+  <video id="video" width="640" height="480" autoplay></video>
+  
+  <!-- Capture, Accept, and Retry buttons -->
+  <button id="capture-btn">Capture</button>
+  <button id="accept-btn" style="display:none;">Accept</button>
+  <button id="retry-btn" style="display:none;">Retry</button>
+  
+  <!-- Image Preview -->
+  <img id="preview-img" src="" style="display:none;" />
+  
+  <!-- QR Code Container -->
+  <div id="qr-code-container" style="display:none;">
+    <h3>Scan this QR code to access your photo:</h3>
+    <canvas id="qr-code"></canvas>
   </div>
-
-  <div id="email-form">
-    <input type="email" id="email" placeholder="Your email address">
-    <button id="send-email">Send Picture</button>
-    <button id="exit-button">Retake</button>
-  </div>
-
-  <!-- Thank You image -->
-  <img id="thank-you-image" src="https://empiredigitalsigns.com/wp-content/uploads/2025/03/ThankYouPhoto_Full_Fonda.png" alt="Thank You">
-
+  
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  
   <script>
-    const video = document.getElementById('camera');
-    const captureButton = document.getElementById('capture-button');
-    const emailForm = document.getElementById('email-form');
-    const sendEmailButton = document.getElementById('send-email');
-    const exitButton = document.getElementById('exit-button');
-    const emailInput = document.getElementById('email');
-    const capturedImage = document.getElementById('captured-image');
-    const timerElement = document.getElementById('timer');
-    const thankYouImage = document.getElementById('thank-you-image');
-    let capturedImageData = null;
-    let countdownTimer = null;
-    let countdown = 5;
-
-    // Get access to the user's camera
+    // Cloudinary configuration
+    const cloudName = 'dha75ojc3';  // Replace with your Cloudinary cloud name
+    const uploadPreset = 'MontgomeryPhotobooth';  // Replace with your upload preset
+    
+    // Access the video and buttons
+    const video = document.getElementById('video');
+    const captureBtn = document.getElementById('capture-btn');
+    const acceptBtn = document.getElementById('accept-btn');
+    const retryBtn = document.getElementById('retry-btn');
+    const previewImg = document.getElementById('preview-img');
+    const qrCodeContainer = document.getElementById('qr-code-container');
+    const qrCodeCanvas = document.getElementById('qr-code');
+    
+    // Access the camera feed
     navigator.mediaDevices.getUserMedia({ video: true })
       .then(stream => {
-        console.log('Webcam access granted!');
-        video.srcObject = stream;
+        video.srcObject = stream; // Show the video feed from the camera
       })
       .catch(err => {
-        console.log('Error accessing camera: ', err);
-        alert("Unable to access your camera. Please check permissions.");
+        console.error('Error accessing the camera:', err);
+        alert('Error accessing the camera. Please check your browser permissions.');
       });
-
-    captureButton.addEventListener('click', () => {
-      captureButton.style.display = 'none';
-      timerElement.style.display = 'block';
-      timerElement.textContent = countdown;
-
-      countdownTimer = setInterval(() => {
-        countdown--;
-        timerElement.textContent = countdown;
-        if (countdown === 0) {
-          clearInterval(countdownTimer);
-          takeSnapshot();
-        }
-      }, 1000);
-    });
-
-    function takeSnapshot() {
+    
+    // Capture the photo when the capture button is clicked
+    captureBtn.addEventListener('click', () => {
       const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+      const context = canvas.getContext('2d');
       
-      canvas.width = 730;
-      canvas.height = 520;
-
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      capturedImageData = canvas.toDataURL('image/png');
-
-      capturedImage.src = capturedImageData;
-      capturedImage.style.display = 'block';
-      capturedImage.style.objectFit = 'cover';
-
-      video.style.display = 'none';
-      emailForm.style.display = 'block';
-      timerElement.style.display = 'none';
-    }
-
-    function displayThankYouImageForSevenSeconds() {
-      thankYouImage.style.display = 'block';  // Show "Thank You" image
-      setTimeout(() => {
-        thankYouImage.style.display = 'none';  // Hide it after 7 seconds
-        resetCamera();  // Reset everything to the start
-      }, 7000);  // 7 seconds
-    }
-
-    sendEmailButton.addEventListener('click', () => {
-      const email = emailInput.value;
-      if (email && capturedImageData) {
-        // Send the email with the captured image
-        const formData = new FormData();
-        formData.append('email', email);
-        formData.append('image', capturedImageData);
-
-        fetch('/send-email', {
-          method: 'POST',
-          body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            alert('Image sent to ' + email);
-            displayThankYouImageForSevenSeconds(); // Show thank you image for 7 seconds
-          } else {
-            alert('There was an error sending the image.');
-          }
-        })
-        .catch(error => {
-          console.error('Error:', error);
-          alert('There was an error sending the image.');
-        });
-      } else {
-        alert('Please capture an image and provide an email address.');
-      }
+      // Set canvas size to match the video size
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      // Draw the current frame of the video to the canvas
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Convert the canvas to a base64 image URL
+      const dataUrl = canvas.toDataURL('image/png');
+      
+      // Display the preview image
+      previewImg.src = dataUrl;
+      previewImg.style.display = 'block';
+      
+      // Show the Accept and Retry buttons
+      acceptBtn.style.display = 'inline-block';
+      retryBtn.style.display = 'inline-block';
     });
-
-    function resetCamera() {
-      emailForm.style.display = 'none';
-      capturedImage.style.display = 'none';
-      video.style.display = 'block';
-      captureButton.style.display = 'inline-block';
-      captureButton.disabled = false;
-      countdown = 5;
-      timerElement.textContent = countdown;
-    }
-
-    exitButton.addEventListener('click', resetCamera);
+    
+    // Retry the process if user wants to take another photo
+    retryBtn.addEventListener('click', () => {
+      previewImg.style.display = 'none';  // Hide the preview image
+      acceptBtn.style.display = 'none';   // Hide the accept button
+      retryBtn.style.display = 'none';    // Hide the retry button
+    });
+    
+    // Accept the photo and upload it to Cloudinary
+    acceptBtn.addEventListener('click', () => {
+      const dataUrl = previewImg.src;  // Get the data URL of the preview image
+      
+      // Convert base64 to Blob
+      const byteString = atob(dataUrl.split(',')[1]);
+      const arrayBuffer = new ArrayBuffer(byteString.length);
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      for (let i = 0; i < byteString.length; i++) {
+        uint8Array[i] = byteString.charCodeAt(i);
+      }
+      
+      const blob = new Blob([uint8Array], { type: 'image/png' });
+      
+      // Prepare FormData for Cloudinary upload
+      const formData = new FormData();
+      formData.append('file', blob);
+      formData.append('upload_preset', uploadPreset);
+      
+      // Make the API request to Cloudinary
+      fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        // Handle the response (Image URL returned)
+        const imageUrl = data.secure_url;  // URL of the uploaded image
+        
+        console.log('Image uploaded successfully!', data);
+        alert('Photo uploaded! View it at: ' + imageUrl);
+        
+        // Generate QR Code with the image URL
+        QRCode.toCanvas(qrCodeCanvas, imageUrl, {
+          width: 200, // Set the size of the QR code (in pixels)
+          height: 200,
+        }, function (error) {
+          if (error) {
+            console.error(error);
+          } else {
+            console.log('QR Code generated successfully!');
+          }
+        });
+        
+        // Display the QR Code (it'll be generated on a canvas inside the qr-code-container)
+        qrCodeContainer.style.display = 'block';
+      })
+      .catch(error => {
+        console.error('Error uploading image:', error);
+      });
+    });
   </script>
 </body>
 </html>
