@@ -111,7 +111,7 @@
         const imageUrl = data.secure_url;  // URL of the uploaded image
         
         console.log('Image uploaded successfully!', data);
-        alert('Photo uploaded! View it at: ' + imageUrl);
+        //alert('Photo uploaded! View it at: ' + imageUrl);
         
         // Generate QR Code with the image URL
         QRCode.toCanvas(qrCodeCanvas, imageUrl, {
