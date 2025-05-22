@@ -1,36 +1,80 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Photo Booth</title>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: url('assets/your-background.jpg') no-repeat center center fixed;
+      background-size: cover;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      color: white;
+    }
+
+    video, img {
+      border: 5px solid white;
+      max-width: 90%;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+    }
+
+    #qr-code-container {
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    button {
+      margin: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
 </head>
 <body>
-  <!-- Video element to show the camera feed -->
-  <video id="video" width="640" height="480" autoplay></video>
-  
-  <!-- Capture, Accept, and Retry buttons -->
-  <button id="capture-btn">Capture</button>
-  <button id="accept-btn" style="display:none;">Accept</button>
-  <button id="retry-btn" style="display:none;">Retry</button>
-  
-  <!-- Image Preview -->
+
+  <!-- Live camera preview -->
+  <video id="video" width="640" height="480" autoplay playsinline></video>
+
+  <!-- Controls -->
+  <div>
+    <button id="capture-btn">Capture</button>
+    <button id="accept-btn" style="display:none;">Accept</button>
+    <button id="retry-btn" style="display:none;">Retry</button>
+  </div>
+
+  <!-- Captured image preview -->
   <img id="preview-img" src="" style="display:none;" />
-  
-  <!-- QR Code Container -->
+
+  <!-- QR Code -->
   <div id="qr-code-container" style="display:none;">
     <h3>Scan this QR code to access your photo:</h3>
     <canvas id="qr-code"></canvas>
   </div>
-  
+
+  <!-- QR Code library -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-  
+
   <script>
-    // Cloudinary configuration
-    const cloudName = 'dha75ojc3';  // Replace with your Cloudinary cloud name
-    const uploadPreset = 'MontgomeryPhotobooth';  // Replace with your upload preset
-    
-    // Access the video and buttons
+    const cloudName = 'dha75ojc3';  // Your Cloudinary cloud name
+    const uploadPreset = 'MontgomeryPhotobooth';  // Your upload preset
+
     const video = document.getElementById('video');
     const captureBtn = document.getElementById('capture-btn');
     const acceptBtn = document.getElementById('accept-btn');
@@ -38,98 +82,98 @@
     const previewImg = document.getElementById('preview-img');
     const qrCodeContainer = document.getElementById('qr-code-container');
     const qrCodeCanvas = document.getElementById('qr-code');
-    
-    // Access the camera feed
+
+    let capturedDataUrl = "";
+
+    // Start camera
     navigator.mediaDevices.getUserMedia({ video: true })
       .then(stream => {
-        video.srcObject = stream; // Show the video feed from the camera
+        video.srcObject = stream;
       })
       .catch(err => {
-        console.error('Error accessing the camera:', err);
+        console.error('Camera error:', err);
         alert('Error accessing the camera. Please check your browser permissions.');
       });
-    
-    // Capture the photo when the capture button is clicked
+
+    // Capture image with frame overlay
     captureBtn.addEventListener('click', () => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
-      
-      // Set canvas size to match the video size
+
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      
-      // Draw the current frame of the video to the canvas
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      // Convert the canvas to a base64 image URL
-      const dataUrl = canvas.toDataURL('image/png');
-      
-      // Display the preview image
-      previewImg.src = dataUrl;
-      previewImg.style.display = 'block';
-      
-      // Show the Accept and Retry buttons
-      acceptBtn.style.display = 'inline-block';
-      retryBtn.style.display = 'inline-block';
+
+      const frame = new Image();
+      frame.src = 'assets/your-frame.png';
+
+      frame.onload = () => {
+        // Draw the live video
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Draw the frame over it
+        context.drawImage(frame, 0, 0, canvas.width, canvas.height);
+
+        // Save final image
+        capturedDataUrl = canvas.toDataURL('image/png');
+
+        // Show preview and controls
+        previewImg.src = capturedDataUrl;
+        previewImg.style.display = 'block';
+        acceptBtn.style.display = 'inline-block';
+        retryBtn.style.display = 'inline-block';
+        captureBtn.style.display = 'none';
+      };
     });
-    
-    // Retry the process if user wants to take another photo
+
+    // Retry
     retryBtn.addEventListener('click', () => {
-      previewImg.style.display = 'none';  // Hide the preview image
-      acceptBtn.style.display = 'none';   // Hide the accept button
-      retryBtn.style.display = 'none';    // Hide the retry button
+      previewImg.style.display = 'none';
+      acceptBtn.style.display = 'none';
+      retryBtn.style.display = 'none';
+      qrCodeContainer.style.display = 'none';
+      captureBtn.style.display = 'inline-block';
     });
-    
-    // Accept the photo and upload it to Cloudinary
+
+    // Upload to Cloudinary and generate QR code
     acceptBtn.addEventListener('click', () => {
-      const dataUrl = previewImg.src;  // Get the data URL of the preview image
-      
-      // Convert base64 to Blob
+      const dataUrl = capturedDataUrl;
+
       const byteString = atob(dataUrl.split(',')[1]);
       const arrayBuffer = new ArrayBuffer(byteString.length);
       const uint8Array = new Uint8Array(arrayBuffer);
-      
       for (let i = 0; i < byteString.length; i++) {
         uint8Array[i] = byteString.charCodeAt(i);
       }
-      
       const blob = new Blob([uint8Array], { type: 'image/png' });
-      
-      // Prepare FormData for Cloudinary upload
+
       const formData = new FormData();
       formData.append('file', blob);
       formData.append('upload_preset', uploadPreset);
-      
-      // Make the API request to Cloudinary
+
       fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
         method: 'POST',
         body: formData
       })
       .then(response => response.json())
       .then(data => {
-        // Handle the response (Image URL returned)
-        const imageUrl = data.secure_url;  // URL of the uploaded image
-        
-        console.log('Image uploaded successfully!', data);
-        //alert('Photo uploaded! View it at: ' + imageUrl);
-        
-        // Generate QR Code with the image URL
+        const imageUrl = data.secure_url;
+
+        // Generate QR code
         QRCode.toCanvas(qrCodeCanvas, imageUrl, {
-          width: 200, // Set the size of the QR code (in pixels)
-          height: 200,
+          width: 200,
+          height: 200
         }, function (error) {
           if (error) {
             console.error(error);
           } else {
-            console.log('QR Code generated successfully!');
+            console.log('QR Code generated!');
           }
         });
-        
-        // Display the QR Code (it'll be generated on a canvas inside the qr-code-container)
+
         qrCodeContainer.style.display = 'block';
       })
       .catch(error => {
-        console.error('Error uploading image:', error);
+        console.error('Upload error:', error);
+        alert('There was an error uploading the photo.');
       });
     });
   </script>
