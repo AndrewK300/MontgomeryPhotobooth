@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Photo Booth - Countdown Timer</title>
+  <title>Photo Booth - Reset & Inactivity Timer</title>
   <style>
     body {
       margin: 0; padding: 0;
@@ -124,6 +124,7 @@
     const retryBtn = document.getElementById('retry-btn');
 
     let capturedDataUrl = "";
+    let inactivityTimeout;
 
     // Start camera
     navigator.mediaDevices.getUserMedia({ video: true })
@@ -133,6 +134,39 @@
       .catch(err => {
         alert('Error accessing camera: ' + err.message);
       });
+
+    // Reset booth to initial state
+    function resetBooth() {
+      // Hide preview and QR
+      previewImg.style.display = 'none';
+      qrCodeContainer.style.display = 'none';
+      countdownEl.style.display = 'none';
+
+      // Show video
+      video.style.display = 'block';
+
+      // Show Capture button, hide others
+      captureBtn.style.display = 'inline-block';
+      captureBtn.disabled = false;
+      acceptBtn.style.display = 'none';
+      retryBtn.style.display = 'none';
+
+      // Clear captured image data
+      capturedDataUrl = "";
+    }
+
+    // Reset inactivity timer (1 min)
+    function resetInactivityTimer() {
+      if(inactivityTimeout) clearTimeout(inactivityTimeout);
+      inactivityTimeout = setTimeout(() => {
+        resetBooth();
+      }, 60000); // 60000ms = 60 seconds
+    }
+
+    // Call reset inactivity on any button click
+    [captureBtn, acceptBtn, retryBtn].forEach(btn => {
+      btn.addEventListener('click', resetInactivityTimer);
+    });
 
     function startCountdown(seconds, callback) {
       countdownEl.style.display = 'block';
@@ -153,11 +187,17 @@
     }
 
     captureBtn.addEventListener('click', () => {
+      // If QR code showing, reset to start instead of showing old preview
+      if (qrCodeContainer.style.display === 'block') {
+        resetBooth();
+        resetInactivityTimer();
+        return;
+      }
+
       // Disable capture button during countdown
       captureBtn.disabled = true;
 
       startCountdown(5, () => {
-        // Enable capture button again
         captureBtn.disabled = false;
 
         const canvas = document.createElement('canvas');
@@ -183,17 +223,14 @@
         acceptBtn.style.display = 'inline-block';
         retryBtn.style.display = 'inline-block';
         captureBtn.style.display = 'none';
+
+        resetInactivityTimer();
       });
     });
 
     retryBtn.addEventListener('click', () => {
-      previewImg.style.display = 'none';
-      qrCodeContainer.style.display = 'none';
-      video.style.display = 'block';
-
-      acceptBtn.style.display = 'none';
-      retryBtn.style.display = 'none';
-      captureBtn.style.display = 'inline-block';
+      resetBooth();
+      resetInactivityTimer();
     });
 
     acceptBtn.addEventListener('click', () => {
@@ -229,11 +266,17 @@
         acceptBtn.style.display = 'none';
         retryBtn.style.display = 'none';
         captureBtn.style.display = 'inline-block';
+
+        resetInactivityTimer();
       })
       .catch(err => {
         alert('Upload failed: ' + err.message);
       });
     });
+
+    // Start inactivity timer on page load
+    resetInactivityTimer();
+
   </script>
 </body>
 </html>
