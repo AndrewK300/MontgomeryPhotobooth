@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Photo Booth - Single Box UI</title>
+  <title>Photo Booth - Countdown Timer</title>
   <style>
     body {
       margin: 0; padding: 0;
@@ -28,6 +28,7 @@
       align-items: center;
       padding: 10px;
       box-sizing: border-box;
+      user-select: none;
     }
     video, img, canvas {
       max-width: 100%;
@@ -42,6 +43,7 @@
       display: flex;
       justify-content: center;
       gap: 15px;
+      z-index: 10;
     }
     button {
       padding: 10px 20px;
@@ -53,30 +55,51 @@
       color: white;
       transition: background 0.3s;
     }
-    button:hover {
+    button:hover:not(:disabled) {
       background: #0056b3;
+    }
+    button:disabled {
+      cursor: default;
+      background: #444;
     }
     #qr-code-container {
       margin-top: 12px;
       text-align: center;
+      z-index: 10;
     }
     #qr-code-container h3 {
       margin: 8px 0 5px 0;
       font-weight: normal;
       font-size: 14px;
     }
+    /* Countdown overlay */
+    #countdown {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 12rem;
+      font-weight: 900;
+      color: white;
+      opacity: 0.15;
+      text-shadow: 0 0 10px rgba(255,255,255,0.3);
+      pointer-events: none;
+      user-select: none;
+      z-index: 20;
+      font-family: 'Arial Black', Arial, sans-serif;
+    }
   </style>
 </head>
 <body>
 
   <div id="photobooth-box">
-    <!-- This container shows either video, captured image, or QR code canvas -->
     <video id="video" autoplay playsinline></video>
     <img id="preview-img" style="display:none;" />
     <div id="qr-code-container" style="display:none;">
       <h3>Scan to get your photo</h3>
       <canvas id="qr-code"></canvas>
     </div>
+    <div id="countdown" style="display:none;">5</div>
 
     <div id="controls">
       <button id="capture-btn">Capture</button>
@@ -94,6 +117,7 @@
     const previewImg = document.getElementById('preview-img');
     const qrCodeContainer = document.getElementById('qr-code-container');
     const qrCodeCanvas = document.getElementById('qr-code');
+    const countdownEl = document.getElementById('countdown');
 
     const captureBtn = document.getElementById('capture-btn');
     const acceptBtn = document.getElementById('accept-btn');
@@ -110,34 +134,58 @@
         alert('Error accessing camera: ' + err.message);
       });
 
-    // Capture photo
+    function startCountdown(seconds, callback) {
+      countdownEl.style.display = 'block';
+      let current = seconds;
+
+      countdownEl.textContent = current;
+
+      const interval = setInterval(() => {
+        current--;
+        if (current <= 0) {
+          clearInterval(interval);
+          countdownEl.style.display = 'none';
+          callback();
+        } else {
+          countdownEl.textContent = current;
+        }
+      }, 1000);
+    }
+
     captureBtn.addEventListener('click', () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
+      // Disable capture button during countdown
+      captureBtn.disabled = true;
 
-      if (canvas.width === 0 || canvas.height === 0) {
-        alert('Video feed not ready yet, please wait.');
-        return;
-      }
+      startCountdown(5, () => {
+        // Enable capture button again
+        captureBtn.disabled = false;
 
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      capturedDataUrl = canvas.toDataURL('image/png');
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
 
-      // Show captured image, hide video & QR
-      previewImg.src = capturedDataUrl;
-      previewImg.style.display = 'block';
-      video.style.display = 'none';
-      qrCodeContainer.style.display = 'none';
+        if (canvas.width === 0 || canvas.height === 0) {
+          alert('Video feed not ready yet, please wait.');
+          return;
+        }
 
-      // Show Accept and Retry, hide Capture
-      acceptBtn.style.display = 'inline-block';
-      retryBtn.style.display = 'inline-block';
-      captureBtn.style.display = 'none';
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        capturedDataUrl = canvas.toDataURL('image/png');
+
+        // Show captured image, hide video & QR
+        previewImg.src = capturedDataUrl;
+        previewImg.style.display = 'block';
+        video.style.display = 'none';
+        qrCodeContainer.style.display = 'none';
+
+        // Show Accept and Retry, hide Capture
+        acceptBtn.style.display = 'inline-block';
+        retryBtn.style.display = 'inline-block';
+        captureBtn.style.display = 'none';
+      });
     });
 
-    // Retry photo
     retryBtn.addEventListener('click', () => {
       previewImg.style.display = 'none';
       qrCodeContainer.style.display = 'none';
@@ -148,7 +196,6 @@
       captureBtn.style.display = 'inline-block';
     });
 
-    // Accept and upload photo
     acceptBtn.addEventListener('click', () => {
       const byteString = atob(capturedDataUrl.split(',')[1]);
       const arrayBuffer = new ArrayBuffer(byteString.length);
@@ -190,4 +237,3 @@
   </script>
 </body>
 </html>
-
