@@ -1,136 +1,140 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Photo Booth</title>
-<style>
-  html, body {
-    margin: 0; padding: 0; height: 100%;
-    background: #111 url('MontgomeryBG.png') no-repeat center center fixed;
-    background-size: cover;
-    display: flex; justify-content: center; align-items: center;
-    font-family: sans-serif;
-    overflow: hidden;
-    color: white;
-  }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Photo Booth</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #111 url('MontgomeryBG.png') no-repeat center center fixed;
+      background-size: cover;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      font-family: sans-serif;
+      overflow: hidden;
+      color: white;
+    }
 
-  #photobooth-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
+    #photobooth-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 60px; /* moved down from top */
+    }
 
-  #media-frame {
-    position: relative;
-    width: 90vw;
-    max-width: 1280px;
-    aspect-ratio: 16 / 9;
-    overflow: visible;
-  }
+    #media-frame {
+      position: relative;
+      width: 90vw;
+      max-width: 1280px;
+      aspect-ratio: 16 / 9;
+      overflow: visible;
+    }
 
-  /* Crop wrapper with overflow hidden to clip video and preview */
-  #camera-wrapper {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 70%;      /* Adjust to fit inside frame */
-    height: 85%;
-    overflow: hidden;
-    transform: translate(-50%, -50%);
-    z-index: 1;
-  }
+    #camera-wrapper {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 70%; /* narrower to fit inside frame */
+      height: 85%;
+      overflow: hidden;
+      transform: translate(-50%, -50%);
+      z-index: 1;
+    }
 
-  /* Video and preview inside wrapper, filling height, cropping width */
-  #camera-wrapper video,
-  #camera-wrapper img {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    height: 100%;
-    min-width: 100%;
-    transform: translate(-50%, -50%);
-    object-fit: cover;
-  }
+    #camera-wrapper video,
+    #camera-wrapper img {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      height: 100%;
+      min-width: 100%;
+      transform: translate(-50%, -50%);
+      object-fit: cover;
+    }
 
-  /* Mirror only the video */
-  #camera-wrapper video {
-    transform: translate(-50%, -50%) scaleX(-1);
-  }
+    #camera-wrapper video {
+      transform: translate(-50%, -50%) scaleX(-1); /* mirrored */
+    }
 
-  /* Preview image is normal */
-  #camera-wrapper img {
-    display: none;
-  }
+    #camera-wrapper img {
+      display: none;
+    }
 
-  /* Frame overlay on top */
-  #frame-overlay {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%;
-    height: 100%;
-    background-image: url('frame.png');
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: contain;
-    z-index: 2;
-    pointer-events: none;
-  }
+    #frame-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: url('frame.png');
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: contain;
+      z-index: 2;
+      pointer-events: none;
+    }
 
-  #countdown {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 12rem;
-    font-weight: 900;
-    opacity: 0.25;
-    color: white;
-    z-index: 20;
-    pointer-events: none;
-    display: none;
-  }
+    #countdown {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 12rem;
+      font-weight: 900;
+      opacity: 0.25;
+      color: white;
+      z-index: 20;
+      pointer-events: none;
+      display: none;
+    }
 
-  #controls {
-    margin-top: 15px;
-    display: flex;
-    gap: 20px;
-  }
+    #qr-code-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 10;
+      display: none;
+    }
 
-  button {
-    padding: 15px 30px;
-    font-size: 18px;
-    border: none;
-    border-radius: 6px;
-    background-color: #007bff;
-    color: white;
-    cursor: pointer;
-  }
+    #qr-code-container h3 {
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
 
-  button:hover {
-    background-color: #0056b3;
-  }
+    #qr-code {
+      width: 200px;
+      height: 200px;
+    }
 
-  #qr-code-container {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    z-index: 10;
-    display: none;
-  }
+    #controls {
+      position: absolute;
+      bottom: 3%;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 20px;
+      z-index: 3;
+    }
 
-  #qr-code-container h3 {
-    font-size: 20px;
-    margin-bottom: 10px;
-  }
+    button {
+      padding: 15px 30px;
+      font-size: 18px;
+      border: none;
+      border-radius: 6px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
 
-  #qr-code {
-    width: 200px;
-    height: 200px;
-  }
-</style>
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
 </head>
 <body>
 
@@ -140,18 +144,21 @@
         <video id="video" autoplay playsinline></video>
         <img id="preview-img" />
       </div>
+
+      <div id="countdown">5</div>
+
       <div id="qr-code-container">
         <h3>Scan to get your photo</h3>
         <canvas id="qr-code"></canvas>
       </div>
-      <div id="countdown">5</div>
-      <div id="frame-overlay"></div>
-    </div>
 
-    <div id="controls">
-      <button id="capture-btn">Capture</button>
-      <button id="accept-btn" style="display:none;">Accept</button>
-      <button id="retry-btn" style="display:none;">Retry</button>
+      <div id="controls">
+        <button id="capture-btn">Capture</button>
+        <button id="accept-btn" style="display:none;">Accept</button>
+        <button id="retry-btn" style="display:none;">Retry</button>
+      </div>
+
+      <div id="frame-overlay"></div>
     </div>
   </div>
 
@@ -218,7 +225,7 @@
       }
 
       captureBtn.disabled = true;
-      captureBtn.style.display = 'none';  // hide capture button during countdown
+      captureBtn.style.display = 'none';
 
       startCountdown(5, () => {
         const canvas = document.createElement('canvas');
@@ -226,7 +233,6 @@
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
 
-        // Mirror the video while capturing
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -290,6 +296,5 @@
 
     resetInactivityTimer();
   </script>
-
 </body>
 </html>
