@@ -137,12 +137,10 @@
       background-color: #fbaa1d;
       color: black;
       cursor: pointer;
-      transition: background-color 0.3s ease;
     }
 
-    /* Loading overlay */
     #loading-overlay {
-      display: none; /* hidden by default */
+      display: none;
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.7);
@@ -152,7 +150,6 @@
       justify-content: center;
       align-items: center;
       z-index: 10000;
-      user-select: none;
     }
   </style>
 </head>
@@ -216,8 +213,10 @@
       previewImg.style.display = 'none';
       qrCodeContainer.style.display = 'none';
       countdownEl.style.display = 'none';
+
       captureBtn.style.display = 'inline-block';
       captureBtn.disabled = false;
+
       acceptBtn.style.display = 'none';
       retryBtn.style.display = 'none';
       hideLoading();
@@ -229,12 +228,8 @@
     }
 
     navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => {
-        video.srcObject = stream;
-      })
-      .catch(err => {
-        alert('Camera error: ' + err.message);
-      });
+      .then(stream => video.srcObject = stream)
+      .catch(err => alert('Camera error: ' + err.message));
 
     function startCountdown(seconds, callback) {
       countdownEl.style.display = 'block';
@@ -252,7 +247,7 @@
     }
 
     captureBtn.addEventListener('click', () => {
-      if (qrCodeContainer.style.display === 'none') {
+      if (qrCodeContainer.style.display !== 'none') {
         resetBooth();
         return;
       }
@@ -265,11 +260,9 @@
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
-
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
         capturedDataUrl = canvas.toDataURL('image/png');
         previewImg.src = capturedDataUrl;
 
@@ -289,68 +282,49 @@
 
     acceptBtn.addEventListener('click', () => {
       showLoading();
+      const byteString = atob(capturedDataUrl.split(',')[1]);
+      const arrayBuffer = new ArrayBuffer(byteString.length);
+      const uint8Array = new Uint8Array(arrayBuffer);
+      for (let i = 0; i < byteString.length; i++) {
+        uint8Array[i] = byteString.charCodeAt(i);
+      }
+      const blob = new Blob([uint8Array], { type: 'image/png' });
+      const formData = new FormData();
+      formData.append('file', blob);
+      formData.append('upload_preset', uploadPreset);
 
-      const baseImg = new Image();
-      const frameImg = new Image();
+      fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        const imageUrl = data.secure_url;
+        QRCode.toCanvas(qrCodeCanvas, imageUrl, {
+          width: 200,
+          height: 200
+        }, err => {
+          if (err) console.error(err);
+        });
 
-      baseImg.onload = () => {
-        frameImg.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = baseImg.width;
-          canvas.height = baseImg.height;
-          const ctx = canvas.getContext('2d');
+        previewImg.style.display = 'none';
+        qrCodeContainer.style.display = 'block';
+        acceptBtn.style.display = 'none';
+        retryBtn.style.display = 'none';
+        captureBtn.style.display = 'inline-block';
+        captureBtn.disabled = false;
 
-          ctx.drawImage(baseImg, 0, 0);
-          ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-
-          const combinedDataUrl = canvas.toDataURL('image/png');
-
-          const byteString = atob(combinedDataUrl.split(',')[1]);
-          const arrayBuffer = new ArrayBuffer(byteString.length);
-          const uint8Array = new Uint8Array(arrayBuffer);
-          for (let i = 0; i < byteString.length; i++) {
-            uint8Array[i] = byteString.charCodeAt(i);
-          }
-          const blob = new Blob([uint8Array], { type: 'image/png' });
-
-          const formData = new FormData();
-          formData.append('file', blob);
-          formData.append('upload_preset', uploadPreset);
-
-          fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-            method: 'POST',
-            body: formData
-          })
-          .then(res => res.json())
-          .then(data => {
-            const imageUrl = data.secure_url;
-            QRCode.toCanvas(qrCodeCanvas, imageUrl, {
-              width: 200,
-              height: 200
-            }, err => {
-              if (err) console.error(err);
-            });
-
-            previewImg.style.display = 'none';
-            qrCodeContainer.style.display = 'block';
-            acceptBtn.style.display = 'none';
-            retryBtn.style.display = 'none';
-            captureBtn.style.display = 'inline-block';
-
-            hideLoading();
-            resetInactivityTimer();
-          })
-          .catch(err => {
-            hideLoading();
-            alert('Upload error: ' + err.message);
-          });
-        };
-        frameImg.src = 'frame.png';
-      };
-      baseImg.src = capturedDataUrl;
+        hideLoading();
+        resetInactivityTimer();
+      })
+      .catch(err => {
+        hideLoading();
+        alert('Upload error: ' + err.message);
+      });
     });
 
     resetInactivityTimer();
   </script>
 </body>
 </html>
+
