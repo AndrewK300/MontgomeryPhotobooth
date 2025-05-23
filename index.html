@@ -235,6 +235,7 @@
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
 
+        // Flip camera capture horizontally (mirror)
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -257,46 +258,67 @@
     });
 
     acceptBtn.addEventListener('click', () => {
-      const byteString = atob(capturedDataUrl.split(',')[1]);
-      const arrayBuffer = new ArrayBuffer(byteString.length);
-      const uint8Array = new Uint8Array(arrayBuffer);
-      for (let i = 0; i < byteString.length; i++) {
-        uint8Array[i] = byteString.charCodeAt(i);
-      }
-      const blob = new Blob([uint8Array], { type: 'image/png' });
+      // Create a canvas to combine photo + frame overlay
+      const photoCanvas = document.createElement('canvas');
+      const photoCtx = photoCanvas.getContext('2d');
 
-      const formData = new FormData();
-      formData.append('file', blob);
-      formData.append('upload_preset', uploadPreset);
+      // Set canvas to the video size
+      photoCanvas.width = video.videoWidth;
+      photoCanvas.height = video.videoHeight;
 
-      fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-        method: 'POST',
-        body: formData
-      })
-      .then(res => res.json())
-      .then(data => {
-        const imageUrl = data.secure_url;
-        QRCode.toCanvas(qrCodeCanvas, imageUrl, {
-          width: 200,
-          height: 200
-        }, err => {
-          if (err) console.error(err);
-        });
+      // Draw the mirrored video frame (captured image)
+      const img = new Image();
+      img.onload = () => {
+        // Draw the captured photo on canvas
+        photoCtx.drawImage(img, 0, 0, photoCanvas.width, photoCanvas.height);
 
-        previewImg.style.display = 'none';
-        qrCodeContainer.style.display = 'block';
-        acceptBtn.style.display = 'none';
-        retryBtn.style.display = 'none';
-        captureBtn.style.display = 'inline-block';
+        // Draw the frame overlay image on top
+        const frameImg = new Image();
+        frameImg.onload = () => {
+          photoCtx.drawImage(frameImg, 0, 0, photoCanvas.width, photoCanvas.height);
 
-        resetInactivityTimer();
-      })
-      .catch(err => {
-        alert('Upload error: ' + err.message);
-      });
+          // Convert final image to Blob for upload
+          photoCanvas.toBlob((blob) => {
+            const formData = new FormData();
+            formData.append('file', blob);
+            formData.append('upload_preset', uploadPreset);
+
+            fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+              method: 'POST',
+              body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+              const imageUrl = data.secure_url;
+              QRCode.toCanvas(qrCodeCanvas, imageUrl, {
+                width: 200,
+                height: 200
+              }, err => {
+                if (err) console.error(err);
+              });
+
+              previewImg.style.display = 'none';
+              qrCodeContainer.style.display = 'block';
+              acceptBtn.style.display = 'none';
+              retryBtn.style.display = 'none';
+              captureBtn.style.display = 'inline-block';
+
+              resetInactivityTimer();
+            })
+            .catch(err => {
+              alert('Upload error: ' + err.message);
+            });
+          }, 'image/png');
+        };
+        frameImg.src = 'frame.png'; // Load your frame overlay here
+      };
+      img.src = capturedDataUrl;
     });
 
     resetInactivityTimer();
   </script>
+</body>
+</html>
+
 </body>
 </html>
