@@ -23,7 +23,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      margin-top: 60px; /* moved down from top */
+      margin-top: 60px;
       position: relative;
       width: 90vw;
       max-width: 1280px;
@@ -41,7 +41,7 @@
       position: absolute;
       top: 50%;
       left: 50%;
-      width: 70%; /* narrower to fit inside frame */
+      width: 70%;
       height: 85%;
       overflow: hidden;
       transform: translate(-50%, -50%);
@@ -60,7 +60,7 @@
     }
 
     #camera-wrapper video {
-      transform: translate(-50%, -50%) scaleX(-1); /* mirrored */
+      transform: translate(-50%, -50%) scaleX(-1);
     }
 
     #camera-wrapper img {
@@ -121,7 +121,7 @@
 
     #controls {
       position: absolute;
-      bottom: 15%; /* Adjust this as needed */
+      bottom: 15%;
       left: 50%;
       transform: translateX(-50%);
       display: flex;
@@ -134,7 +134,7 @@
       font-size: 18px;
       border: none;
       border-radius: 6px;
-      background-color: #fbaa1d; /* your custom color */
+      background-color: #fbaa1d;
       color: black;
       cursor: pointer;
       transition: background-color 0.3s ease;
@@ -142,14 +142,13 @@
 
     /* Loading overlay */
     #loading-overlay {
-      display: none;
+      display: none; /* hidden by default */
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.7);
       color: white;
       font-size: 2rem;
       font-weight: bold;
-      display: flex;
       justify-content: center;
       align-items: center;
       z-index: 10000;
@@ -291,27 +290,21 @@
     acceptBtn.addEventListener('click', () => {
       showLoading();
 
-      // Create offscreen canvas to merge frame.png with captured photo
       const baseImg = new Image();
       const frameImg = new Image();
 
       baseImg.onload = () => {
         frameImg.onload = () => {
-          // Create canvas same size as base image
           const canvas = document.createElement('canvas');
           canvas.width = baseImg.width;
           canvas.height = baseImg.height;
           const ctx = canvas.getContext('2d');
 
-          // Draw the captured photo
           ctx.drawImage(baseImg, 0, 0);
-
-          // Draw the frame overlay on top, scaled to same size
           ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
 
           const combinedDataUrl = canvas.toDataURL('image/png');
 
-          // Convert base64 to Blob for upload
           const byteString = atob(combinedDataUrl.split(',')[1]);
           const arrayBuffer = new ArrayBuffer(byteString.length);
           const uint8Array = new Uint8Array(arrayBuffer);
@@ -361,4 +354,3 @@
   </script>
 </body>
 </html>
-
