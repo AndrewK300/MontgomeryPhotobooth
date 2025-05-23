@@ -146,10 +146,12 @@
 
       <div id="countdown">5</div>
 
-      <div id="qr-code-container">
-        <h3>Scan to get your photo</h3>
-        <canvas id="qr-code"></canvas>
-      </div>
+      <div id="qr-code-container" style="display:none; text-align: center;">
+  <img id="qr-text" src="FreeDigitalPhotoText.png" alt="Photo Text" style="max-width: 80%; margin-bottom: 15px;" />
+  <h3>Scan this QR code to access your photo:</h3>
+  <canvas id="qr-code"></canvas>
+</div>
+
 
       <div id="controls">
         <button id="capture-btn">Capture</button>
