@@ -5,41 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Photo Booth</title>
   <style>
-    body {
+    * {
       margin: 0;
       padding: 0;
-      height: 100vh;
-      background: #222;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #111;
       display: flex;
       justify-content: center;
       align-items: center;
-      font-family: sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
       color: white;
     }
 
     #photobooth-box {
-      background: #333;
-      width: 640px;
-      max-width: 90vw;
-      height: 480px;
-      border-radius: 12px;
-      box-shadow: 0 0 15px #000;
-      position: relative;
+      width: 100vw;
+      height: 100vh;
+      max-width: 1920px;
+      max-height: 1080px;
+      aspect-ratio: 16 / 9;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 10px;
-      box-sizing: border-box;
-      user-select: none;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
     }
 
     #media-frame {
-      position: relative;
       width: 100%;
-      height: 360px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      height: 100%;
+      position: relative;
       overflow: hidden;
     }
 
@@ -51,66 +51,28 @@
       width: 100%;
       height: 100%;
       background-image: url('frame.png');
-      background-size: contain;
+      background-size: cover;
       background-repeat: no-repeat;
       background-position: center;
       pointer-events: none;
       z-index: 15;
     }
 
-    video {
-      transform: scaleX(-1); /* Mirror live video only */
-    }
-
     video, img, canvas {
-      max-width: 100%;
-      max-height: 100%;
-      border-radius: 8px;
-      background: black;
-      object-fit: contain;
-      flex-shrink: 0;
       position: absolute;
       top: 0;
       left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
-    #controls {
-      margin-top: 12px;
-      display: flex;
-      justify-content: center;
-      gap: 15px;
-      z-index: 10;
+    video {
+      transform: scaleX(-1); /* Mirror video preview only */
     }
 
-    button {
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
-      border: none;
-      border-radius: 5px;
-      background: #007bff;
-      color: white;
-      transition: background 0.3s;
-    }
-
-    button:hover:not(:disabled) {
-      background: #0056b3;
-    }
-
-    button:disabled {
-      cursor: default;
-      background: #444;
-    }
-
-    #qr-code-container {
-      text-align: center;
-      z-index: 10;
-    }
-
-    #qr-code-container h3 {
-      margin: 8px 0 5px 0;
-      font-weight: normal;
-      font-size: 14px;
+    #preview-img, #qr-code-container {
+      display: none;
     }
 
     #countdown {
@@ -120,13 +82,51 @@
       transform: translate(-50%, -50%);
       font-size: 12rem;
       font-weight: 900;
-      color: white;
       opacity: 0.25;
-      text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-      pointer-events: none;
-      user-select: none;
       z-index: 20;
-      font-family: 'Arial Black', Arial, sans-serif;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    #controls {
+      position: absolute;
+      bottom: 40px;
+      z-index: 30;
+      display: flex;
+      gap: 20px;
+    }
+
+    button {
+      padding: 15px 30px;
+      font-size: 20px;
+      border: none;
+      border-radius: 8px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    #qr-code-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 10;
+    }
+
+    #qr-code-container h3 {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    #qr-code {
+      width: 200px;
+      height: 200px;
     }
   </style>
 </head>
@@ -135,12 +135,12 @@
   <div id="photobooth-box">
     <div id="media-frame">
       <video id="video" autoplay playsinline></video>
-      <img id="preview-img" style="display:none;" />
-      <div id="qr-code-container" style="display:none;">
+      <img id="preview-img" />
+      <div id="qr-code-container">
         <h3>Scan to get your photo</h3>
         <canvas id="qr-code"></canvas>
       </div>
-      <div id="countdown" style="display:none;">5</div>
+      <div id="countdown">5</div>
     </div>
 
     <div id="controls">
@@ -160,7 +160,6 @@
     const qrCodeContainer = document.getElementById('qr-code-container');
     const qrCodeCanvas = document.getElementById('qr-code');
     const countdownEl = document.getElementById('countdown');
-
     const captureBtn = document.getElementById('capture-btn');
     const acceptBtn = document.getElementById('accept-btn');
     const retryBtn = document.getElementById('retry-btn');
@@ -168,54 +167,42 @@
     let capturedDataUrl = "";
     let inactivityTimeout;
 
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => {
-        video.srcObject = stream;
-      })
-      .catch(err => {
-        alert('Error accessing camera: ' + err.message);
-      });
-
     function resetBooth() {
+      video.style.display = 'block';
       previewImg.style.display = 'none';
       qrCodeContainer.style.display = 'none';
       countdownEl.style.display = 'none';
-
-      video.style.display = 'block';
 
       captureBtn.style.display = 'inline-block';
       captureBtn.disabled = false;
       acceptBtn.style.display = 'none';
       retryBtn.style.display = 'none';
-
-      capturedDataUrl = "";
     }
 
     function resetInactivityTimer() {
-      if (inactivityTimeout) clearTimeout(inactivityTimeout);
-      inactivityTimeout = setTimeout(() => {
-        resetBooth();
-      }, 60000);
+      clearTimeout(inactivityTimeout);
+      inactivityTimeout = setTimeout(resetBooth, 60000);
     }
 
-    [captureBtn, acceptBtn, retryBtn].forEach(btn => {
-      btn.addEventListener('click', resetInactivityTimer);
-    });
+    navigator.mediaDevices.getUserMedia({ video: { width: 1920, height: 1080 } })
+      .then(stream => {
+        video.srcObject = stream;
+      })
+      .catch(err => {
+        alert('Camera error: ' + err.message);
+      });
 
     function startCountdown(seconds, callback) {
       countdownEl.style.display = 'block';
       let current = seconds;
-
       countdownEl.textContent = current;
-
       const interval = setInterval(() => {
         current--;
+        countdownEl.textContent = current;
         if (current <= 0) {
           clearInterval(interval);
           countdownEl.style.display = 'none';
           callback();
-        } else {
-          countdownEl.textContent = current;
         }
       }, 1000);
     }
@@ -223,40 +210,29 @@
     captureBtn.addEventListener('click', () => {
       if (qrCodeContainer.style.display === 'block') {
         resetBooth();
-        resetInactivityTimer();
         return;
       }
 
       captureBtn.disabled = true;
 
       startCountdown(5, () => {
-        captureBtn.disabled = false;
-
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
 
-        if (canvas.width === 0 || canvas.height === 0) {
-          alert('Video feed not ready yet, please wait.');
-          return;
-        }
-
-        // Un-mirror the image for capture
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
         capturedDataUrl = canvas.toDataURL('image/png');
-
         previewImg.src = capturedDataUrl;
+
         previewImg.style.display = 'block';
         video.style.display = 'none';
-        qrCodeContainer.style.display = 'none';
-
+        captureBtn.style.display = 'none';
         acceptBtn.style.display = 'inline-block';
         retryBtn.style.display = 'inline-block';
-        captureBtn.style.display = 'none';
 
         resetInactivityTimer();
       });
@@ -284,30 +260,32 @@
         method: 'POST',
         body: formData
       })
-      .then(res => res.json())
-      .then(data => {
-        const imageUrl = data.secure_url;
-        QRCode.toCanvas(qrCodeCanvas, imageUrl, { width: 200, height: 200 }, err => {
-          if (err) console.error(err);
+        .then(res => res.json())
+        .then(data => {
+          const imageUrl = data.secure_url;
+          QRCode.toCanvas(qrCodeCanvas, imageUrl, {
+            width: 200,
+            height: 200
+          }, err => {
+            if (err) console.error(err);
+          });
+
+          previewImg.style.display = 'none';
+          qrCodeContainer.style.display = 'block';
+          acceptBtn.style.display = 'none';
+          retryBtn.style.display = 'none';
+          captureBtn.style.display = 'inline-block';
+
+          resetInactivityTimer();
+        })
+        .catch(err => {
+          alert('Upload error: ' + err.message);
         });
-
-        qrCodeContainer.style.display = 'block';
-        previewImg.style.display = 'none';
-        video.style.display = 'none';
-
-        acceptBtn.style.display = 'none';
-        retryBtn.style.display = 'none';
-        captureBtn.style.display = 'inline-block';
-
-        resetInactivityTimer();
-      })
-      .catch(err => {
-        alert('Upload failed: ' + err.message);
-      });
     });
 
     resetInactivityTimer();
   </script>
 </body>
 </html>
+
 
