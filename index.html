@@ -24,13 +24,16 @@
       flex-direction: column;
       align-items: center;
       margin-top: 60px; /* moved down from top */
-    }
-
-    #media-frame {
       position: relative;
       width: 90vw;
       max-width: 1280px;
       aspect-ratio: 16 / 9;
+    }
+
+    #media-frame {
+      position: relative;
+      width: 100%;
+      height: 100%;
       overflow: visible;
     }
 
@@ -111,33 +114,54 @@
       height: 200px;
     }
 
-   #controls {
-  position: absolute;
-  bottom: 15%; /* Adjust this as needed */
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 20px;
-  z-index: 3;
-}
+    #qr-text {
+      max-width: 80%;
+      margin-bottom: 15px;
+    }
 
+    #controls {
+      position: absolute;
+      bottom: 15%; /* Adjust this as needed */
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 20px;
+      z-index: 3;
+    }
 
-   button {
-  padding: 15px 30px;
-  font-size: 18px;
-  border: none;
-  border-radius: 6px;
-  background-color: #fbaa1d; /* your custom color */
-  color: black;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
+    button {
+      padding: 15px 30px;
+      font-size: 18px;
+      border: none;
+      border-radius: 6px;
+      background-color: #fbaa1d; /* your custom color */
+      color: black;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
 
+    /* Loading overlay */
+    #loading-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      font-size: 2rem;
+      font-weight: bold;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+      user-select: none;
+    }
   </style>
 </head>
 <body>
 
   <div id="photobooth-box">
+    <div id="loading-overlay">Processing...</div>
+
     <div id="media-frame">
       <div id="camera-wrapper">
         <video id="video" autoplay playsinline></video>
@@ -146,18 +170,16 @@
 
       <div id="countdown">5</div>
 
-      <div id="qr-code-container" style="display:none; text-align: center;">
-  <img id="qr-text" src="FreeDigitalPhotoText.png" alt="Photo Text" style="max-width: 80%; margin-bottom: 15px;" />
-  <h3>Scan this QR code to access your photo:</h3>
-  <canvas id="qr-code"></canvas>
-</div>
-
+      <div id="qr-code-container">
+        <img id="qr-text" src="FreeDigitalPhotoText.png" alt="Photo Text" />
+        <h3>Scan this QR code to access your photo:</h3>
+        <canvas id="qr-code"></canvas>
+      </div>
 
       <div id="controls">
         <button id="capture-btn">Capture</button>
         <button id="accept-btn" style="display:none;">Accept</button>
         <button id="retry-btn" style="display:none;">Retry</button>
-        <button id="retry-btn" style="display:none;">Retake</button>
       </div>
 
       <div id="frame-overlay"></div>
@@ -177,9 +199,18 @@
     const captureBtn = document.getElementById('capture-btn');
     const acceptBtn = document.getElementById('accept-btn');
     const retryBtn = document.getElementById('retry-btn');
+    const loadingOverlay = document.getElementById('loading-overlay');
 
     let capturedDataUrl = "";
     let inactivityTimeout;
+
+    function showLoading() {
+      loadingOverlay.style.display = 'flex';
+    }
+
+    function hideLoading() {
+      loadingOverlay.style.display = 'none';
+    }
 
     function resetBooth() {
       video.style.display = 'block';
@@ -190,6 +221,7 @@
       captureBtn.disabled = false;
       acceptBtn.style.display = 'none';
       retryBtn.style.display = 'none';
+      hideLoading();
     }
 
     function resetInactivityTimer() {
@@ -235,7 +267,6 @@
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
 
-        // Flip camera capture horizontally (mirror)
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -258,61 +289,72 @@
     });
 
     acceptBtn.addEventListener('click', () => {
-      // Create a canvas to combine photo + frame overlay
-      const photoCanvas = document.createElement('canvas');
-      const photoCtx = photoCanvas.getContext('2d');
+      showLoading();
 
-      // Set canvas to the video size
-      photoCanvas.width = video.videoWidth;
-      photoCanvas.height = video.videoHeight;
+      // Create offscreen canvas to merge frame.png with captured photo
+      const baseImg = new Image();
+      const frameImg = new Image();
 
-      // Draw the mirrored video frame (captured image)
-      const img = new Image();
-      img.onload = () => {
-        // Draw the captured photo on canvas
-        photoCtx.drawImage(img, 0, 0, photoCanvas.width, photoCanvas.height);
-
-        // Draw the frame overlay image on top
-        const frameImg = new Image();
+      baseImg.onload = () => {
         frameImg.onload = () => {
-          photoCtx.drawImage(frameImg, 0, 0, photoCanvas.width, photoCanvas.height);
+          // Create canvas same size as base image
+          const canvas = document.createElement('canvas');
+          canvas.width = baseImg.width;
+          canvas.height = baseImg.height;
+          const ctx = canvas.getContext('2d');
 
-          // Convert final image to Blob for upload
-          photoCanvas.toBlob((blob) => {
-            const formData = new FormData();
-            formData.append('file', blob);
-            formData.append('upload_preset', uploadPreset);
+          // Draw the captured photo
+          ctx.drawImage(baseImg, 0, 0);
 
-            fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-              method: 'POST',
-              body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-              const imageUrl = data.secure_url;
-              QRCode.toCanvas(qrCodeCanvas, imageUrl, {
-                width: 200,
-                height: 200
-              }, err => {
-                if (err) console.error(err);
-              });
+          // Draw the frame overlay on top, scaled to same size
+          ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
 
-              previewImg.style.display = 'none';
-              qrCodeContainer.style.display = 'block';
-              acceptBtn.style.display = 'none';
-              retryBtn.style.display = 'none';
-              captureBtn.style.display = 'inline-block';
+          const combinedDataUrl = canvas.toDataURL('image/png');
 
-              resetInactivityTimer();
-            })
-            .catch(err => {
-              alert('Upload error: ' + err.message);
+          // Convert base64 to Blob for upload
+          const byteString = atob(combinedDataUrl.split(',')[1]);
+          const arrayBuffer = new ArrayBuffer(byteString.length);
+          const uint8Array = new Uint8Array(arrayBuffer);
+          for (let i = 0; i < byteString.length; i++) {
+            uint8Array[i] = byteString.charCodeAt(i);
+          }
+          const blob = new Blob([uint8Array], { type: 'image/png' });
+
+          const formData = new FormData();
+          formData.append('file', blob);
+          formData.append('upload_preset', uploadPreset);
+
+          fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+            method: 'POST',
+            body: formData
+          })
+          .then(res => res.json())
+          .then(data => {
+            const imageUrl = data.secure_url;
+            QRCode.toCanvas(qrCodeCanvas, imageUrl, {
+              width: 200,
+              height: 200
+            }, err => {
+              if (err) console.error(err);
             });
-          }, 'image/png');
+
+            previewImg.style.display = 'none';
+            qrCodeContainer.style.display = 'block';
+            acceptBtn.style.display = 'none';
+            retryBtn.style.display = 'none';
+            captureBtn.style.display = 'inline-block';
+
+            hideLoading();
+            resetInactivityTimer();
+          })
+          .catch(err => {
+            hideLoading();
+            alert('Upload error: ' + err.message);
+          });
         };
-        frameImg.src = 'frame.png'; // Load your frame overlay here
+        frameImg.src = 'frame.png';
       };
-      img.src = capturedDataUrl;
+      baseImg.src = capturedDataUrl;
     });
 
     resetInactivityTimer();
@@ -320,5 +362,3 @@
 </body>
 </html>
 
-</body>
-</html>
