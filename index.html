@@ -21,37 +21,49 @@
     align-items: center;
   }
 
-  /* Container sized to frame.png natural ratio (assuming 1920x1080 here) */
   #media-frame {
     position: relative;
-    width: 90vw;  /* responsive width */
-    max-width: 1280px; 
-    aspect-ratio: 16 / 9;  /* keep 1920x1080 ratio */
-    overflow: hidden;
+    width: 90vw;
+    max-width: 1280px;
+    aspect-ratio: 16 / 9;
+    overflow: visible;
   }
 
-  /* The video and image fill the container exactly, behind the frame */
-#media-frame video,
-#media-frame img {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 85%;
-  height: 85%;
-  object-fit: cover;
-  z-index: 1;
-}
+  /* Crop wrapper with overflow hidden to clip video and preview */
+  #camera-wrapper {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 85%;      /* Adjust to fit inside frame */
+    height: 85%;
+    overflow: hidden;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+  }
 
-#media-frame video {
-  transform: translate(-50%, -50%) scaleX(-1);
-}
+  /* Video and preview inside wrapper, filling height, cropping width */
+  #camera-wrapper video,
+  #camera-wrapper img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    height: 100%;
+    min-width: 100%;
+    transform: translate(-50%, -50%);
+    object-fit: cover;
+  }
 
-#media-frame img {
-  transform: translate(-50%, -50%);
-}
+  /* Mirror only the video */
+  #camera-wrapper video {
+    transform: translate(-50%, -50%) scaleX(-1);
+  }
 
+  /* Preview image is normal */
+  #camera-wrapper img {
+    display: none;
+  }
 
-  /* Frame on top */
+  /* Frame overlay on top */
   #frame-overlay {
     position: absolute;
     top: 0; left: 0;
@@ -65,10 +77,6 @@
     pointer-events: none;
   }
 
-  #preview-img, #qr-code-container {
-    display: none;
-  }
-
   #countdown {
     position: absolute;
     top: 50%;
@@ -80,7 +88,7 @@
     color: white;
     z-index: 20;
     pointer-events: none;
-    display: none; /* hide initially */
+    display: none;
   }
 
   #controls {
@@ -110,6 +118,7 @@
     transform: translate(-50%, -50%);
     text-align: center;
     z-index: 10;
+    display: none;
   }
 
   #qr-code-container h3 {
@@ -127,8 +136,10 @@
 
   <div id="photobooth-box">
     <div id="media-frame">
-      <video id="video" autoplay playsinline></video>
-      <img id="preview-img" />
+      <div id="camera-wrapper">
+        <video id="video" autoplay playsinline></video>
+        <img id="preview-img" />
+      </div>
       <div id="qr-code-container">
         <h3>Scan to get your photo</h3>
         <canvas id="qr-code"></canvas>
