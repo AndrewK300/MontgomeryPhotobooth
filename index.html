@@ -200,6 +200,10 @@
     let capturedDataUrl = "";
     let inactivityTimeout;
 
+    // Load background image
+    const bgImage = new Image();
+    bgImage.src = 'MontgomeryBG.png';
+
     function showLoading() {
       loadingOverlay.style.display = 'flex';
     }
@@ -260,18 +264,32 @@
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        capturedDataUrl = canvas.toDataURL('image/png');
-        previewImg.src = capturedDataUrl;
 
-        previewImg.style.display = 'block';
-        video.style.display = 'none';
-        acceptBtn.style.display = 'inline-block';
-        retryBtn.style.display = 'inline-block';
+        const drawCapture = () => {
+          // Draw background image
+          ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
 
-        resetInactivityTimer();
+          // Draw mirrored video frame
+          ctx.translate(canvas.width, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          capturedDataUrl = canvas.toDataURL('image/png');
+          previewImg.src = capturedDataUrl;
+
+          previewImg.style.display = 'block';
+          video.style.display = 'none';
+          acceptBtn.style.display = 'inline-block';
+          retryBtn.style.display = 'inline-block';
+
+          resetInactivityTimer();
+        };
+
+        if (bgImage.complete) {
+          drawCapture();
+        } else {
+          bgImage.onload = drawCapture;
+        }
       });
     });
 
@@ -327,4 +345,3 @@
   </script>
 </body>
 </html>
-
