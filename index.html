@@ -200,9 +200,9 @@
     let capturedDataUrl = "";
     let inactivityTimeout;
 
-    // Load background image
-    const bgImage = new Image();
-    bgImage.src = 'MontgomeryBG.png';
+    // Load frame image
+    const frameImage = new Image();
+    frameImage.src = 'frame.png';
 
     function showLoading() {
       loadingOverlay.style.display = 'flex';
@@ -266,13 +266,16 @@
         const ctx = canvas.getContext('2d');
 
         const drawCapture = () => {
-          // Draw background image
-          ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
-
-          // Draw mirrored video frame
+          // Mirror and draw video
           ctx.translate(canvas.width, 0);
           ctx.scale(-1, 1);
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          // Reset transform
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+          // Draw frame overlay on top
+          ctx.drawImage(frameImage, 0, 0, canvas.width, canvas.height);
 
           capturedDataUrl = canvas.toDataURL('image/png');
           previewImg.src = capturedDataUrl;
@@ -285,10 +288,10 @@
           resetInactivityTimer();
         };
 
-        if (bgImage.complete) {
+        if (frameImage.complete) {
           drawCapture();
         } else {
-          bgImage.onload = drawCapture;
+          frameImage.onload = drawCapture;
         }
       });
     });
