@@ -67,8 +67,19 @@
       display: none;
     }
 
-    /* Removed #frame-overlay visually */
-    /* Optional: keep the CSS if needed later */
+    #frame-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: url('frame.png');
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: contain;
+      z-index: 2;
+      pointer-events: none;
+    }
+
     #countdown {
       position: absolute;
       top: 50%;
@@ -167,8 +178,7 @@
         <button id="retry-btn" style="display:none;">Retry</button>
       </div>
 
-      <!-- Frame overlay removed from UI -->
-      <!-- <div id="frame-overlay"></div> -->
+      <div id="frame-overlay"></div>
     </div>
   </div>
 
@@ -187,10 +197,11 @@
     const retryBtn = document.getElementById('retry-btn');
     const loadingOverlay = document.getElementById('loading-overlay');
 
-    let capturedDataUrl = "";
+    let capturedDataUrl = ""; // for preview (no frame)
+    let capturedDataUrlForUpload = ""; // for upload (with frame)
     let inactivityTimeout;
 
-    // Load frame image (used only for canvas, not for UI)
+    // Preload frame image for drawing on upload canvas
     const frameImage = new Image();
     frameImage.src = 'frame.png';
 
@@ -250,39 +261,51 @@
       captureBtn.style.display = 'none';
 
       startCountdown(5, () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
+        const width = video.videoWidth;
+        const height = video.videoHeight;
 
-        const drawCapture = () => {
-          // Mirror and draw video
-          ctx.translate(canvas.width, 0);
-          ctx.scale(-1, 1);
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Canvas for preview (no frame)
+        const previewCanvas = document.createElement('canvas');
+        previewCanvas.width = width;
+        previewCanvas.height = height;
+        const previewCtx = previewCanvas.getContext('2d');
+        previewCtx.translate(width, 0);
+        previewCtx.scale(-1, 1);
+        previewCtx.drawImage(video, 0, 0, width, height);
 
-          // Reset transform
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
+        // Show preview without frame
+        capturedDataUrl = previewCanvas.toDataURL('image/png');
+        previewImg.src = capturedDataUrl;
 
-          // Draw frame overlay on canvas only
-          ctx.drawImage(frameImage, 0, 0, canvas.width, canvas.height);
+        // Canvas for upload (with frame)
+        const uploadCanvas = document.createElement('canvas');
+        uploadCanvas.width = width;
+        uploadCanvas.height = height;
+        const uploadCtx = uploadCanvas.getContext('2d');
 
-          capturedDataUrl = canvas.toDataURL('image/png');
-          previewImg.src = capturedDataUrl;
+        // Draw mirrored video on upload canvas
+        uploadCtx.translate(width, 0);
+        uploadCtx.scale(-1, 1);
+        uploadCtx.drawImage(video, 0, 0, width, height);
+        uploadCtx.setTransform(1, 0, 0, 1, 0, 0); // reset transform
 
-          previewImg.style.display = 'block';
-          video.style.display = 'none';
-          acceptBtn.style.display = 'inline-block';
-          retryBtn.style.display = 'inline-block';
-
-          resetInactivityTimer();
-        };
-
+        // Draw the frame image on top (scaled to full size)
         if (frameImage.complete) {
-          drawCapture();
+          uploadCtx.drawImage(frameImage, 0, 0, width, height);
+          capturedDataUrlForUpload = uploadCanvas.toDataURL('image/png');
         } else {
-          frameImage.onload = drawCapture;
+          frameImage.onload = () => {
+            uploadCtx.drawImage(frameImage, 0, 0, width, height);
+            capturedDataUrlForUpload = uploadCanvas.toDataURL('image/png');
+          };
         }
+
+        previewImg.style.display = 'block';
+        video.style.display = 'none';
+        acceptBtn.style.display = 'inline-block';
+        retryBtn.style.display = 'inline-block';
+
+        resetInactivityTimer();
       });
     });
 
@@ -293,7 +316,8 @@
 
     acceptBtn.addEventListener('click', () => {
       showLoading();
-      const byteString = atob(capturedDataUrl.split(',')[1]);
+      // Use the image WITH frame for upload
+      const byteString = atob(capturedDataUrlForUpload.split(',')[1]);
       const arrayBuffer = new ArrayBuffer(byteString.length);
       const uint8Array = new Uint8Array(arrayBuffer);
       for (let i = 0; i < byteString.length; i++) {
