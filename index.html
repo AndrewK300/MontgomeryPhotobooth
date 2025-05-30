@@ -67,19 +67,8 @@
       display: none;
     }
 
-    #frame-overlay {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      background-image: url('frame.png');
-      background-position: center;
-      background-repeat: no-repeat;
-      background-size: contain;
-      z-index: 2;
-      pointer-events: none;
-    }
-
+    /* Removed #frame-overlay visually */
+    /* Optional: keep the CSS if needed later */
     #countdown {
       position: absolute;
       top: 50%;
@@ -178,7 +167,8 @@
         <button id="retry-btn" style="display:none;">Retry</button>
       </div>
 
-      <div id="frame-overlay"></div>
+      <!-- Frame overlay removed from UI -->
+      <!-- <div id="frame-overlay"></div> -->
     </div>
   </div>
 
@@ -200,7 +190,7 @@
     let capturedDataUrl = "";
     let inactivityTimeout;
 
-    // Load frame image
+    // Load frame image (used only for canvas, not for UI)
     const frameImage = new Image();
     frameImage.src = 'frame.png';
 
@@ -274,7 +264,7 @@
           // Reset transform
           ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-          // Draw frame overlay on top
+          // Draw frame overlay on canvas only
           ctx.drawImage(frameImage, 0, 0, canvas.width, canvas.height);
 
           capturedDataUrl = canvas.toDataURL('image/png');
