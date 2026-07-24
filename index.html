@@ -18,7 +18,7 @@
       overflow: hidden;
       color: white;
     }
-
+ 
     #photobooth-box {
       display: flex;
       flex-direction: column;
@@ -29,14 +29,14 @@
       max-width: 1280px;
       aspect-ratio: 16 / 9;
     }
-
+ 
     #media-frame {
       position: relative;
       width: 100%;
       height: 100%;
       overflow: visible;
     }
-
+ 
     #camera-wrapper {
       position: absolute;
       top: 50%;
@@ -47,7 +47,7 @@
       transform: translate(-50%, -50%);
       z-index: 1;
     }
-
+ 
     #camera-wrapper video,
     #camera-wrapper img {
       position: absolute;
@@ -58,15 +58,32 @@
       transform: translate(-50%, -50%);
       object-fit: cover;
     }
-
+ 
     #camera-wrapper video {
       transform: translate(-50%, -50%) scaleX(-1);
     }
-
+ 
     #camera-wrapper img {
       display: none;
     }
-
+ 
+    #camera-error {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      text-align: center;
+      color: #ff5555;
+      font-size: 1.4rem;
+      font-weight: bold;
+      background: rgba(0,0,0,0.6);
+      padding: 20px;
+      border-radius: 8px;
+      display: none;
+      z-index: 5;
+    }
+ 
     #frame-overlay {
       position: absolute;
       top: 0; left: 0;
@@ -79,7 +96,7 @@
       z-index: 2;
       pointer-events: none;
     }
-
+ 
     #countdown {
       position: absolute;
       top: 50%;
@@ -93,7 +110,7 @@
       pointer-events: none;
       display: none;
     }
-
+ 
     #qr-code-container {
       position: absolute;
       top: 50%;
@@ -103,22 +120,22 @@
       z-index: 10;
       display: none;
     }
-
+ 
     #qr-code-container h3 {
       font-size: 20px;
       margin-bottom: 10px;
     }
-
+ 
     #qr-code {
       width: 200px;
       height: 200px;
     }
-
+ 
     #qr-text {
       max-width: 80%;
       margin-bottom: 15px;
     }
-
+ 
     #controls {
       position: absolute;
       bottom: 15%;
@@ -128,7 +145,7 @@
       gap: 20px;
       z-index: 3;
     }
-
+ 
     button {
       padding: 15px 30px;
       font-size: 18px;
@@ -138,7 +155,7 @@
       color: black;
       cursor: pointer;
     }
-
+ 
     #loading-overlay {
       display: none;
       position: fixed;
@@ -154,39 +171,41 @@
   </style>
 </head>
 <body>
-
+ 
   <div id="photobooth-box">
     <div id="loading-overlay">Processing...</div>
-
+ 
     <div id="media-frame">
       <div id="camera-wrapper">
-        <video id="video" autoplay playsinline></video>
+        <video id="video" autoplay playsinline muted></video>
         <img id="preview-img" />
       </div>
-
+ 
+      <div id="camera-error"></div>
+ 
       <div id="countdown">5</div>
-
+ 
       <div id="qr-code-container">
         <img id="qr-text" src="FreeDigitalPhotoText.png" alt="Photo Text" />
         <h3>Scan this QR code to access your photo:</h3>
         <canvas id="qr-code"></canvas>
       </div>
-
+ 
       <div id="controls">
         <button id="capture-btn">Capture</button>
         <button id="accept-btn" style="display:none;">Accept</button>
         <button id="retry-btn" style="display:none;">Retry</button>
       </div>
-
+ 
       <div id="frame-overlay"></div>
     </div>
   </div>
-
+ 
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <script>
     const cloudName = 'dha75ojc3';
     const uploadPreset = 'MontgomeryPhotobooth';
-
+ 
     const video = document.getElementById('video');
     const previewImg = document.getElementById('preview-img');
     const qrCodeContainer = document.getElementById('qr-code-container');
@@ -196,46 +215,74 @@
     const acceptBtn = document.getElementById('accept-btn');
     const retryBtn = document.getElementById('retry-btn');
     const loadingOverlay = document.getElementById('loading-overlay');
-
+    const cameraErrorEl = document.getElementById('camera-error');
+ 
     let capturedDataUrl = ""; // for preview (no frame)
     let capturedDataUrlForUpload = ""; // for upload (with frame)
     let inactivityTimeout;
-
+ 
     // Preload frame image for drawing on upload canvas
     const frameImage = new Image();
     frameImage.src = 'frame.png';
-
+ 
     function showLoading() {
       loadingOverlay.style.display = 'flex';
     }
-
+ 
     function hideLoading() {
       loadingOverlay.style.display = 'none';
     }
-
+ 
+    function showCameraError(message) {
+      cameraErrorEl.textContent = message;
+      cameraErrorEl.style.display = 'block';
+      captureBtn.disabled = true;
+    }
+ 
+    function clearCameraError() {
+      cameraErrorEl.style.display = 'none';
+      cameraErrorEl.textContent = '';
+    }
+ 
     function resetBooth() {
       video.style.display = 'block';
       previewImg.style.display = 'none';
       qrCodeContainer.style.display = 'none';
       countdownEl.style.display = 'none';
-
+ 
       captureBtn.style.display = 'inline-block';
       captureBtn.disabled = false;
-
+ 
       acceptBtn.style.display = 'none';
       retryBtn.style.display = 'none';
       hideLoading();
     }
-
+ 
     function resetInactivityTimer() {
       clearTimeout(inactivityTimeout);
       inactivityTimeout = setTimeout(resetBooth, 60000);
     }
-
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => video.srcObject = stream)
-      .catch(err => alert('Camera error: ' + err.message));
-
+ 
+    function initCamera() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showCameraError('Camera API not available in this browser/player.');
+        return;
+      }
+ 
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          video.srcObject = stream;
+          clearCameraError();
+        })
+        .catch(err => {
+          // Shown directly on-screen instead of alert(), since kiosk/signage
+          // browsers typically block or suppress native alert() dialogs.
+          showCameraError('Camera error: ' + err.name + ' - ' + err.message);
+        });
+    }
+ 
+    initCamera();
+ 
     function startCountdown(seconds, callback) {
       countdownEl.style.display = 'block';
       let current = seconds;
@@ -250,20 +297,25 @@
         }
       }, 1000);
     }
-
+ 
     captureBtn.addEventListener('click', () => {
       if (qrCodeContainer.style.display !== 'none') {
         resetBooth();
         return;
       }
-
+ 
+      if (!video.srcObject) {
+        showCameraError('Camera not ready yet. Please check camera permissions.');
+        return;
+      }
+ 
       captureBtn.disabled = true;
       captureBtn.style.display = 'none';
-
+ 
       startCountdown(5, () => {
         const width = video.videoWidth;
         const height = video.videoHeight;
-
+ 
         // Canvas for preview (no frame)
         const previewCanvas = document.createElement('canvas');
         previewCanvas.width = width;
@@ -272,23 +324,23 @@
         previewCtx.translate(width, 0);
         previewCtx.scale(-1, 1);
         previewCtx.drawImage(video, 0, 0, width, height);
-
+ 
         // Show preview without frame
         capturedDataUrl = previewCanvas.toDataURL('image/png');
         previewImg.src = capturedDataUrl;
-
+ 
         // Canvas for upload (with frame)
         const uploadCanvas = document.createElement('canvas');
         uploadCanvas.width = width;
         uploadCanvas.height = height;
         const uploadCtx = uploadCanvas.getContext('2d');
-
+ 
         // Draw mirrored video on upload canvas
         uploadCtx.translate(width, 0);
         uploadCtx.scale(-1, 1);
         uploadCtx.drawImage(video, 0, 0, width, height);
         uploadCtx.setTransform(1, 0, 0, 1, 0, 0); // reset transform
-
+ 
         // Draw the frame image on top (scaled to full size)
         if (frameImage.complete) {
           uploadCtx.drawImage(frameImage, 0, 0, width, height);
@@ -299,21 +351,21 @@
             capturedDataUrlForUpload = uploadCanvas.toDataURL('image/png');
           };
         }
-
+ 
         previewImg.style.display = 'block';
         video.style.display = 'none';
         acceptBtn.style.display = 'inline-block';
         retryBtn.style.display = 'inline-block';
-
+ 
         resetInactivityTimer();
       });
     });
-
+ 
     retryBtn.addEventListener('click', () => {
       resetBooth();
       resetInactivityTimer();
     });
-
+ 
     acceptBtn.addEventListener('click', () => {
       showLoading();
       // Use the image WITH frame for upload
@@ -327,7 +379,7 @@
       const formData = new FormData();
       formData.append('file', blob);
       formData.append('upload_preset', uploadPreset);
-
+ 
       fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
         method: 'POST',
         body: formData
@@ -341,23 +393,23 @@
         }, err => {
           if (err) console.error(err);
         });
-
+ 
         previewImg.style.display = 'none';
         qrCodeContainer.style.display = 'block';
         acceptBtn.style.display = 'none';
         retryBtn.style.display = 'none';
         captureBtn.style.display = 'inline-block';
         captureBtn.disabled = false;
-
+ 
         hideLoading();
         resetInactivityTimer();
       })
       .catch(err => {
         hideLoading();
-        alert('Upload error: ' + err.message);
+        showCameraError('Upload error: ' + err.message);
       });
     });
-
+ 
     resetInactivityTimer();
   </script>
 </body>
